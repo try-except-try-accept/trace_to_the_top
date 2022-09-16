@@ -1,7 +1,13 @@
 SPACE4 = " "*4
 SPACE_SIZE = 4
-
+MAX_CELL_LENGTH = 20
 CONTROL_STATEMENTS = 'if,elif,else,def,for,while,try,except'.split(",")
+REMOVE_VARS = ["this_func", "params", "namespace"]  # helpers for identifying scope
+import inspect
+
+namespace = "main()"
+exec_q = []
+trace_table = {}
 
 ###################################################################################################
 
@@ -17,24 +23,40 @@ def get_trace_table(code: str) -> str:
 
         indent = get_indent(line)
 
+        this_func = inspect.stack()[0][3]
+
+
+
+
         if (def_found := s_line.startswith("def")) or \
            (for_found := s_line.startswith("for")):                              # def or for found?
+
             out.append(line)
             indent += SPACE4
 
-            if def_found:
-                out.append(indent + "global current_namespace")                  # id this namespace
-                func_call = line.replace("def ", "")[:-1].strip()
-                out.append(indent + f"current_namespace = '''{func_call}'''")    # record the current namespace ID
 
-            out.append(indent + "log_locals(locals())")
+
+            if def_found:
+
+                params = s_line.split("(")[1][:-2]
+
+                if not params:
+                    params = '()'
+
+                out.append(indent + "this_func = inspect.stack()[0][3]")
+                out.append(indent + f"params = {params}")
+                out.append(indent + 'namespace = f"{this_func}({params})"')
+                out.append(indent + "print(namespace, 'is my namespace')")
+
+            out.append(indent + "log_locals(locals(), namespace)")
 
         elif (if_found := "if" in s_line[:4]) or \
              (while_found := s_line.startswith("while")):                        # ensure logic exps are recorded
             kw = "if " if if_found else "while "
-            cond = line.split(kw)[1][:-1].replace(" ", "")                       # despace condition to allow var name
+            cond = s_line.split(kw)[1].replace(" ", "")[:-1]                       # despace condition to allow var name
             cond = {cond:f"$%eval('{cond}')$%"}                                  # set up the logic exp to evaluate later
-            line = line.replace(kw, f"{kw}log_locals(locals(), {cond}) and ")    # include memory lookup in condition
+            line = line.replace(kw,
+                                f"{kw}log_locals(locals(), namespace, {cond}) and ")    # include memory lookup in condition
             out.append(line)
 
         elif (return_found := s_line.startswith("return")) or \
@@ -46,12 +68,12 @@ def get_trace_table(code: str) -> str:
                 kw = kw[:-1]
 
             out.append(indent + f"{kw.upper()} = {output}")
-            out.append(indent + "log_locals(locals())")
+            out.append(indent + "log_locals(locals(), namespace)")
             out.append(line)
             
         elif not s_line.startswith("else"):
             out.append(line)
-            out.append(indent + "log_locals(locals())")
+            out.append(indent + "log_locals(locals(), namespace)")
         else:                                                                    # nothing to be added to the trace table for else
             out.append(line)
 
@@ -120,26 +142,30 @@ def log_line(i: int) -> bool:
 
 ###################################################################################################
 
-def log_locals(locals, extra_condition=None):
+def log_locals(locals, namespace="main()", extra_condition=None):
     '''Log the memory changes at a given point whilst a program is
     being executed.
     RETURNS: True so can also be used in a conditional structure'''
 
-    global current_namespace                                           # access the labelled namespace from the program
 
     if extra_condition:                                                # check if logical exp is being evaluated too
         locals.update(extra_condition)
 
     filtered_locals = dict(locals)                                     # make a copy to allow changes
 
-    for local, value in locals.items():                                # remove function memory address references
-        if "<function" in str(value):
+    for local, value in locals.items():
+        if "<function" in str(value):                                  # remove function memory address references
+            filtered_locals.pop(local)
+        elif len(str(value)) > MAX_CELL_LENGTH:                        # assume if it's really long we don't want it
+            filtered_locals.pop(local)
+        elif local in REMOVE_VARS:
             filtered_locals.pop(local)
 
     # will NOT work if there are other brackets in func definition...
 
-    ns_params = current_namespace.split("(")[1][:-1]                   # extract the params from the function namespace
-    ns_func = current_namespace.split("(")[0]                          # extract the function name
+
+    ns_params = namespace.split("(")[1][:-1]                   # extract the params from the function namespace
+    ns_func = namespace.split("(")[0]                          # extract the function name
 
     resolved_params = []
 
@@ -151,20 +177,25 @@ def log_locals(locals, extra_condition=None):
                 resolved_value = param
             resolved_params.append(resolved_value)
 
-    current_namespace = f"{ns_func}({', '.join(resolved_params)})"     # reconstruct the namespace name
+    namespace = f"{ns_func}({', '.join(resolved_params)})"     # reconstruct the namespace name
 
     try:
-        trace_table[current_namespace].append(str(filtered_locals))    # add this memory to that table
+        trace_table[namespace].append(dict(filtered_locals))    # add this memory to that table
     except KeyError:
-        trace_table[current_namespace] = [str(filtered_locals)]        # create table if needed
+        trace_table[namespace] = [dict(filtered_locals)]        # create table if needed
     return True
 
 ###################################################################################################
 
 def get_execution_meta(code):
     code = code.replace("\t", SPACE4)
-    exec(parse_exec_q(code))
+    #exec(parse_exec_q(code))
+
+
+
     exec(get_trace_table(code).replace('"$%', "").replace('$%"', ""))
+
+    print(trace_table)
 
     return exec_q, trace_table
 
@@ -172,7 +203,7 @@ def get_execution_meta(code):
 
 def run_tests():
 
-    for i, t in enumerate(tests):
+    for i, t in enumerate(tests[1:]):
         print(f"test {i+1}")
 
         exec_q, trace_table = get_execution_meta(t)
@@ -185,15 +216,24 @@ def run_tests():
             for row in data:
                 print("\t", row)
 
-        print()
+
 
 ###################################################################################################
 
-tests = ['''
-
-def main():
+tests = ['''def main():
+    def recursive_def_dont_work(x):
+        if x < 10:
+            return recursive_def_dont_work(x+1)
+        else:
+            return x
+    recursive_def_dont_work(1)
+main()''',
+    
+    
+'''def main():
 
     def func(a, b, c):
+        print("Whattt")
 
         if a > b:
             t = "hello"
@@ -208,8 +248,9 @@ def main():
 
     x = func(3, 2, 1)
     print(x)
-
+print("hi")
 main()
+print("What's going on")
 ''',
 
 '''
@@ -237,7 +278,5 @@ main()
 '''
 
          ]
-
-exec_q = []
-trace_table = {}
-run_tests()
+if __name__ == "__main__":
+    run_tests()

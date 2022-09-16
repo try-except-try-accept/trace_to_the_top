@@ -2,18 +2,21 @@ STAGE 1
 
 Program code self-annotates locals and logical expressions.
 
-    statement execution order saved in global queue
-    locals saved in global array
-    does statement involve logical expression?
-    IF - save evaluation before execution
-    WHILE - save evaluation before AND after execution
-    ELIF - save all evaluations before execution, but revisit and pop any unevaluated conditions
-    RETURN / print - save expression before execution
-    DEF - save state under CALL
+    statement execution order saved in global queue X
+    locals saved in global array X
+    does statement involve logical expression? X
+    IF - save evaluation before execution X
+    WHILE - save evaluation before AND after execution X
+    ELIF - save all evaluations before execution, but revisit and pop any unevaluated conditions (not required)
+    RETURN / print - save expression before execution X
+    DEF - save state under CALL X
+
+    Need to consider INPUT substitution.
+    What about when arrays have their values changed?
 
 STAGE 2
 
-Locals 3D array -> HTML table
+Locals 3D array -> HTML table X
 
 execution order queue -> code highlight CSS
 

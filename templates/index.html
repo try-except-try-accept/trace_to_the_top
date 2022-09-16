@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Trace to the Top - proof of concept</title>
+
+    <link href="static/styles.css" rel="stylesheet">
+
+</head>
+<body>
+
+    <h1>Trace To The Top!</h1>
+
+    <div class="main">
+
+        <div class="code_container">
+
+        <h2>Code:</h2>
+
+
+
+            <form action="/submit_code" method="post">
+
+                <textarea name="code_submit">
+                    {{ code }}
+
+
+                </textarea>
+
+                <button type="submit">SUBMIT CODE</button>
+            </form>
+        </div>
+
+        <div class="table_container">
+
+        <h2>Trace Table(s):</h2>
+
+        {{ tables }}
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>
