@@ -1,7 +1,7 @@
 SPACE4 = " "*4
 SPACE_SIZE = 4
 MAX_CELL_LENGTH = 20
-CONTROL_STATEMENTS = 'if,elif,else,def,for,while,try,except'.split(",")
+CONTROL_STATEMENTS = 'if,elif,else,while,def,for,try,except'.split(",")
 REMOVE_VARS = ["this_func", "params", "namespace"]  # helpers for identifying scope
 import inspect
 
@@ -40,8 +40,14 @@ def get_trace_table(code: str) -> str:
 
                 params = s_line.split("(")[1][:-2]
 
+
+
                 if not params:
                     params = '()'
+                else:
+                    for delim in ":=":                                               # handle type hints and kwargs
+                        params = ",".join(p.split(delim)[0]
+                                      for p in params.replace(" ", "").split(","))
 
                 out.append(indent + "this_func = inspect.stack()[0][3]")
                 out.append(indent + f"params = {params}")
@@ -51,20 +57,20 @@ def get_trace_table(code: str) -> str:
             out.append(indent + "log_locals(locals(), namespace)")
 
         elif (if_found := "if" in s_line[:4]) or \
-             (while_found := s_line.startswith("while")):                        # ensure logic exps are recorded
+             (while_found := s_line.startswith("while")):                            # ensure logic exps are recorded
             kw = "if " if if_found else "while "
-            cond = s_line.split(kw)[1].replace(" ", "")[:-1]                       # despace condition to allow var name
-            cond = {cond:f"$%eval('{cond}')$%"}                                  # set up the logic exp to evaluate later
+            cond = s_line.split(kw)[1][:-1]                                          # despace condition to allow var name and
+            cond = {convert_to_var(cond):f"$%eval('{cond}')$%"}                      # set up the logic exp to evaluate later
             line = line.replace(kw,
-                                f"{kw}log_locals(locals(), namespace, {cond}) and ")    # include memory lookup in condition
+                                f"{kw}log_locals(locals(), namespace, {cond}) and ") # include memory lookup in condition
             out.append(line)
 
         elif (return_found := s_line.startswith("return")) or \
              (print_found := s_line.startswith("print")):
-            kw = "return " if return_found else "print("                         # track print() and return too
+            kw = "return " if return_found else "print("                             # track print() and return too
             _, output = s_line.split(kw)
             if kw == "print(":
-                output = output[:-1]                                             # get rid of last bracket
+                output = output[:-1]                                                 # get rid of last bracket
                 kw = kw[:-1]
 
             out.append(indent + f"{kw.upper()} = {output}")
@@ -74,7 +80,7 @@ def get_trace_table(code: str) -> str:
         elif not s_line.startswith("else"):
             out.append(line)
             out.append(indent + "log_locals(locals(), namespace)")
-        else:                                                                    # nothing to be added to the trace table for else
+        else:                                                                        # nothing to be added to the trace table for else
             out.append(line)
 
     out = '\n'.join(out)
@@ -96,6 +102,31 @@ def get_indent(line: str) -> str:
 
 ###################################################################################################
 
+def convert_to_var(expression: str) -> str:
+    '''Take a logical expression and convert it
+    to a variable name
+    RETURNS: string - the expression as a variable name'''
+    if not expression[0].isalpha():
+        expression = "_" + expression
+
+    return "".join(e if e.isalpha() or e.isdigit() or e == '_' else '_' for e in expression)
+
+###################################################################################################
+
+def stringify_value(value) -> str:
+    '''Add quote syntax to strings / chars for the trace table
+    to match exam board expectations
+    RETURNS: string - string value with quotes added'''
+    if type(value) != str:
+        return value
+
+    quoted_value = f'"{value}"'                                                     # double quotes for STRING
+    if len(value) == 1:
+        quoted_value = f"'{value}'"                                                 # single quotes for CHAR
+    return quoted_value
+
+###################################################################################################
+
 def parse_exec_q(code: str) -> str:
     '''Iterate through some program code and allow the program to annotate its own
     statement execution order (i.e 'program counter')
@@ -111,20 +142,20 @@ def parse_exec_q(code: str) -> str:
 
         indent = get_indent(line)
 
-        if not s_line:
+        if not s_line:                                                              # strip out blank lines
             continue
-        if s_line.startswith("def"):
+        if any(s_line.startswith(kw) for kw in CONTROL_STATEMENTS[4:]):             # line number AFTER certain keywords
             out.append(line)
             out.append(indent + SPACE4 + track_line)
-        elif "if" in s_line[:4]:
+        elif "if" in s_line[:4]:                                                    # line number during if / elif eval
             line = line.replace("if ", f"if log_line({line_count}) and ")
             out.append(line)
-        elif "while" == s_line[:5]:
+        elif "while" == s_line[:5]:                                                 # line number during while eval
             line = line.replace("while ", f"while log_line({line_count}) and ")
             out.append(line)
-        elif s_line.startswith("else"):
+        elif s_line.startswith("else"):                                             # line number during else (→ elif True)
             out.append(line.replace("else:", f"elif log_line({line_count}):"))
-        else:
+        else:                                                                       # otherwise line number before line
             out.append(indent + track_line)
             out.append(line)
 
@@ -160,24 +191,26 @@ def log_locals(locals, namespace="main()", extra_condition=None):
             filtered_locals.pop(local)
         elif local in REMOVE_VARS:
             filtered_locals.pop(local)
+        else:
+            filtered_locals[local] = stringify_value(value)
 
     # will NOT work if there are other brackets in func definition...
 
 
-    ns_params = namespace.split("(")[1][:-1]                   # extract the params from the function namespace
-    ns_func = namespace.split("(")[0]                          # extract the function name
+    ns_params = namespace.split("(")[1][:-1]                    # extract the params from the function namespace
+    ns_func = namespace.split("(")[0]                           # extract the function name
 
     resolved_params = []
 
-    for param in ns_params.replace(" ", "").split(","):                # lookup the parameter values to resolve references
+    for param in ns_params.replace(" ", "").split(","):         # lookup the parameter values to resolve references
         if param:
             try:
-                resolved_value = str(filtered_locals[param])
-            except KeyError:
-                resolved_value = param
+                resolved_value = str(stringify_value(filtered_locals[param]))
+            except KeyError:                                    # non-literals no need to resolve
+                resolved_value = stringify_value(param)
             resolved_params.append(resolved_value)
 
-    namespace = f"{ns_func}({', '.join(resolved_params)})"     # reconstruct the namespace name
+    namespace = f"{ns_func}({', '.join(resolved_params)})"      # reconstruct the namespace name
 
     try:
         trace_table[namespace].append(dict(filtered_locals))    # add this memory to that table

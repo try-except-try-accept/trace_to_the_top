@@ -11,7 +11,12 @@ app = Flask(__name__)
 @app.route('/submit_code', methods=["POST"])
 def submit():
 	import annotate_execution
-	code = request.form.get("code_submit")
+	code = request.form.get("code_submit").strip()
+
+	if code.split("\n")[0] != "def __main__():":
+		code = "\n".join("\t" + line for line in code.split("\n"))
+		code = "def __main__():\n" + code
+		code = code + "\n__main__()"
 
 	print(code)
 
