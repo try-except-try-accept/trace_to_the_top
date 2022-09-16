@@ -1,0 +1,50 @@
+STAGE 1
+
+Program code self-annotates locals and logical expressions.
+
+    statement execution order saved in global queue
+    locals saved in global array
+    does statement involve logical expression?
+    IF - save evaluation before execution
+    WHILE - save evaluation before AND after execution
+    ELIF - save all evaluations before execution, but revisit and pop any unevaluated conditions
+    RETURN / print - save expression before execution
+    DEF - save state under CALL
+
+STAGE 2
+
+Locals 3D array -> HTML table
+
+execution order queue -> code highlight CSS
+
+Locals 3D array -> cell reveal queue
+
+--------------------------------------------
+
+def example(x, y):              #0
+                                #1
+    if x > y:                   #2
+        thing = "hi"            #3
+    elif x == y:                #4
+        thing = "no"            #5
+    else:                       #6
+        thing = "blah"          #7
+                                #8
+    return thing                #9
+
+x = example(10, 10)             #11
+print(x)                        #12
+
+-------------------------------------------
+
+ex_queue = [11,0,2,4,9,12]
+
+
+[{'CALL':'main', 'evaluations':{''}},
+{'CALL':'example(10, 10)', 'evaluations':{'x':10, 'y':10}},
+{'CALL':'example(10, 10)', 'evaluations':{'x':10, 'y':10, 'x > y':False, 'x == y':True}},
+{'CALL':'example(10, 10)', 'evaluations':{'x':10, 'y':10, 'x > y':False, 'x == y':True}},
+{'CALL':'example(10, 10)', 'evaluations':{'x':10, 'y':10, 'x > y':False, 'x == y':True, 'thing':"no"}},
+{'CALL':'example(10, 10)', 'evaluations':{'x':10, 'y':10, 'x > y':False, 'x == y':True, 'thing':"no", 'RETURN':"no"}},
+{'CALL':'main', 'evaluations':{'x':"no"}},
+{'CALL':'main', 'evaluations':{'x':"no", 'OUTPUT':"no"}}]
