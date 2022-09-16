@@ -3,6 +3,8 @@ SPACE_SIZE = 4
 
 CONTROL_STATEMENTS = 'if,elif,else,def,for,while,try,except'.split(",")
 
+###################################################################################################
+
 def get_trace_table(code):
 
 	out = []
@@ -12,9 +14,16 @@ def get_trace_table(code):
 
 		indent = get_indent(line)
 
-		if any([s_line.startswith(kw) for kw in ["def", "for"]]):
+		if (def_found := s_line.startswith("def")) or (for_found := s_line.startswith("for")):
 			out.append(line)
 			indent += SPACE4
+
+			if def_found:
+				out.append(indent + "global current_namespace")
+				func_call = line.replace("def ", "")[:-1].strip()
+
+				out.append(indent + f"current_namespace = '''{func_call}'''")     # record the current namespace ID
+
 			out.append(indent + "log_locals(locals())")
 
 		elif (if_found := "if" in s_line[:4]) or (while_found := s_line.startswith("while")):
@@ -23,8 +32,9 @@ def get_trace_table(code):
 			condition = {condition.replace(" ", ""):f"$%eval('{condition}')$%"}
 			line = line.replace(f"{kw}", f"{kw}log_locals(locals(), {condition}) and ")
 			out.append(line)
+
 		elif (return_found := s_line.startswith("return")) or (print_found := s_line.startswith("print")):
-			kw = "print(" if print_found else "return "
+			kw = "return " if return_found else "print("
 			_, output = s_line.split(kw)
 			if kw == "print(":
 				output = output[:-1] # get rid of last bracket
@@ -51,7 +61,7 @@ def get_trace_table(code):
 	return out
 
 
-#########
+###################################################################################################
 
 def get_indent(line):
 	space_count = 0
@@ -61,7 +71,7 @@ def get_indent(line):
 		space_count += 1
 	return (space_count * " ")
 
-#########
+###################################################################################################
 
 def parse_exec_q(code):
 
@@ -98,10 +108,85 @@ def parse_exec_q(code):
 
 	return '\n'.join(out)
 
+###################################################################################################
+
+def log_line(i):
+	exec_q.append(i)
+	return True
+
+###################################################################################################
+
+def log_locals(locals, extra_condition=None):
+	global current_namespace
+	if extra_condition:
+		locals.update(extra_condition)
+
+	print(locals)
+
+	filtered_locals = dict(locals)
+
+	for local, value in locals.items():
+		if "<function" in str(value):
+			filtered_locals.pop(local)
+
+
+	ns_params = current_namespace.split("(")[1][:-1]  # will NOT work if there are other brackets in func definition...
+	ns_func = current_namespace.split("(")[0]
+
+	resolved_params = []
+
+	for param in ns_params.replace(" ", "").split(","):
+		if param:
+			try:
+				resolved_value = str(filtered_locals[param])
+			except KeyError:
+				resolved_value = param
+			resolved_params.append(resolved_value)
+
+	current_namespace = ns_func + "(" + ", ".join(resolved_params) + ")"
+
+	try:
+		trace_table[current_namespace].append(str(filtered_locals))
+	except KeyError:
+		trace_table[current_namespace] = [str(filtered_locals)]
+	return True
+
+###################################################################################################
+
+def get_execution_meta(code):
+	code = code.replace("\t", SPACE4)
+	exec(parse_exec_q(code))
+	exec(get_trace_table(code).replace('"$%', "").replace('$%"', ""))
+
+	return exec_q, trace_table
+
+
+
+
+###################################################################################################
+
+def run_tests():
+
+	for i, t in enumerate(tests):
+		print(f"test {i+1}")
+
+		exec_q, trace_table = get_execution_meta(t)
+
+		print("EXECUTION Q: ", exec_q)
+
+		print("TRACE TABLE DATA: ")
+		for namespace, data in trace_table.items():
+			print("NAMESPACE", namespace)
+			for row in data:
+				print("\t", row)
+
+		print()
+
+###################################################################################################
 
 tests = ['''
 
-def test():
+def main():
 
 	def func(a, b, c):
 
@@ -113,60 +198,41 @@ def test():
 			t = "no"
 		else:
 			t = "yesno"
-		
+
 		return t
-	
+
 	x = func(3, 2, 1)
 	print(x)
-	
-test()
+
+main()
 ''',
 
-
 '''
-def test():
+def main():
 	x = 5
 	while x < 50:
 		x += 1
-	print(x)
-test()
+		print(x)
+main()
+''',
+
+'''
+def main():
+	def x(a, b):
+		return a + b
+	
+	def y(a, b):
+		return a * b
+	
+	for i in range(3):
+		for j in range(3):
+			print(x(i, j), y(i, j))
+	
+main()
 '''
 
-
-]
-
-from json import dumps
-
-def log_line(i):
-	exec_q.append(i)
-	return True
-
-def log_locals(locals, extra_condition=None):
-	if extra_condition:
-		locals.update(extra_condition)
-
-	print(locals)
-	input()
-	trace_table.append(str(locals))
-	return True
-
-def main():
-
-	for i, t in enumerate(tests):
-		print(f"test {i+1}")
-
-		code = t.replace("\t", SPACE4)
-		exec(parse_exec_q(code))
-		print("Statement execution queue: exec_q")
-
-		exec(get_trace_table(code).replace('"$%', "").replace('$%"', ""))
-		print("Changes to memory:")
-		for row in trace_table:
-			print(row)
-
-		print()
-
+		 ]
 
 exec_q = []
-trace_table = []
-main()
+trace_table = {}
+run_tests()
