@@ -2,7 +2,7 @@ from flask import Flask, render_template, Markup, request
 
 
 from markup_trace_table import create_tables, markup_code
-
+from prep_animations import prep_line_animations, prep_table_animations
 
 
 app = Flask(__name__)
@@ -23,34 +23,22 @@ def submit():
 
 	code = request.form.get("code_submit").strip()
 	inputs = request.form.get("inputs").strip().replace(" ", "").split(",")
-	orig_code = code
+
+
 
 	wrapped_code = add_wrapper(code)
 
 	exec_q, tt_data = annotate_execution.get_execution_meta(wrapped_code, inputs)
 	tables = create_tables(tt_data)
 
-	return render_template("index.html", tables=tables, code=orig_code)
+	return render_template("display.html", tables=tables, code=markup_code(code), exec_q=exec_q, line_animation=prep_line_animations(exec_q))
 
 #################
 
 @app.route('/')
 def index():
-	code = '''
-def x():
-	x = 2
-	y = 10
-	print("Hello world")
-	return x + y
-result = x()
-print(result)'''
 
-	wrapped_code = add_wrapper(code)
-
-	exec_q, tt_data = annotate_execution.get_execution_meta(wrapped_code)
-	tables = create_tables(tt_data)
-
-	return render_template("index.html", tables=tables, code=code)
+	return render_template("submit.html", tables=None, code="")
 
 app.run()
 

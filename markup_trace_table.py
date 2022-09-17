@@ -9,7 +9,7 @@ from config import SYMBOL_REPS
 def add_new_row(this_row: dict, headings: list) -> str:
 	'''Convert Python dict into HTML table row'''
 
-	return '<tr>' + ''.join(f'<td>{this_row[h]}</td>' for h in headings.keys()) + '</tr>\n'
+	return '<tr>' + ''.join(f'<td class="i{this_row[h][1]}"><span>{this_row[h][0]}</span></td>' for h in headings.keys()) + '</tr>\n'
 
 ####################################################################################
 
@@ -23,9 +23,13 @@ def prepare_table_headings(headings: dict, namespace: str):
 			heading = heading.replace(code, symbol)
 		reformatted_headings.append(heading)
 
+	ns_stripped = namespace
+	for rep in ",()[]":
+		ns_stripped = ns_stripped.replace(rep, '_')
+
 	html = ""
 	heading_row = "".join(f"<th>{h}</th>" for h in reformatted_headings)
-	html += f"<table><tr><th colspan={len(headings)}>{namespace}</th></tr>\n"
+	html += f"<table id={ns_stripped}><tr><th colspan={len(headings)}>{namespace}</th></tr>\n"
 	html += f"<tr>{heading_row}</tr>\n"
 
 	return html
@@ -34,6 +38,10 @@ def prepare_table_headings(headings: dict, namespace: str):
 
 def create_tables(tt_data):
 	html = ""
+
+	instruction_count = 0
+
+
 	for namespace, table in tt_data.items():
 		headings = OrderedDict()
 		for row in table:
@@ -57,10 +65,12 @@ def create_tables(tt_data):
 
 		print("Headings are", headings)
 
-		blank_row = {h:''  for h in headings.keys()}
+		blank_row = {h:('', -1)  for h in headings.keys()}
 
 		current_values = dict(blank_row)
 		this_row = dict(blank_row)
+
+
 
 		while len(table):
 
@@ -68,28 +78,30 @@ def create_tables(tt_data):
 
 			print("This instruction is", this_instruction)
 
+			new_line = this_instruction.get("NL_TRIGGER")
+			if new_line:
+
+				print("New line because trigger")
+				html += add_new_row(this_row, headings)
+				this_row = dict(blank_row)
+
+				this_instruction.pop("NL_TRIGGER")
+
 			for column, value in this_instruction.items():
 
-				if (column == "NL_TRIGGER"):
-					if value:
-						print("New line because trigger")
-						html += add_new_row(this_row, headings)
-						this_row = dict(blank_row)
-					continue
 
-
-				if current_values[column] == '':
-					current_values[column] = value
-					this_row[column] = value
-				elif current_values[column] != value:
-					if this_row[column] != '':
+				if current_values[column][0] == '':
+					current_values[column] = (value, instruction_count)
+					this_row[column] =  (value, instruction_count)
+				elif current_values[column][0] != value:
+					if this_row[column][0] != '':
 						print(f"New line because {value} is different to {current_values[column]} for {column}")
 						html += add_new_row(this_row, headings)
 						this_row = dict(blank_row)
-					current_values[column] = value
-					this_row[column] = value
+					current_values[column] =  (value, instruction_count)
+					this_row[column] =  (value, instruction_count)
 
-
+			instruction_count += 1
 
 		html += add_new_row(this_row, headings)
 
@@ -104,9 +116,12 @@ def create_tables(tt_data):
 def markup_code(code):
 	TABSPACE = "&nbsp;" * 4
 	code = code.replace("\t", TABSPACE)
-	code = code.replace("\n", "<br>")
+	code = code.replace("    ", TABSPACE)
 
-	return Markup("<code>" + code + "</code>")
+	code = "".join(f"<p>{line}</p>" for line in code.splitlines())
+
+	return Markup('<div id="code_display">' + code + "</code>")
+
 
 ####################################################################################
 

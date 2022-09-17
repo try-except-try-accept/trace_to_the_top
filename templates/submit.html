@@ -1,0 +1,20 @@
+{% extends "index.html" %}
+
+{% block code %}
+
+
+<form action="/submit_code" method="post" onsubmit="return check_inputs_provided();">
+
+<textarea id="code_submit" name="code_submit">
+{{ code }}
+</textarea>
+
+    <br>
+    <label for="inputs">List inputs (comma-separated): <input type="text" id="inputs" name="inputs"></label>
+    <br>
+    <button type="submit">SUBMIT CODE</button>
+</form>
+
+
+{% endblock %}
+

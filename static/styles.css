@@ -17,7 +17,11 @@ td, th
     border: 1px solid #00000F;
     width: 25%;
     text-align:center;
+}
 
+td span
+{
+    opacity:0;
 }
 
 
@@ -32,12 +36,35 @@ textarea
 {
 
     display:inline-block;
-      flex: 50%;
+    flex: 50%;
 }
 
 .table_container
 {
 
     display:inline-block;
-      flex: 50%;
+    flex: 50%;
+
 }
+
+.code_display
+{
+    max_width:100%;
+}
+
+
+
+
+
+
+
+@keyframes highlight_line {
+  from {
+    background:white;
+  }
+  to
+  {
+    background:yellow;
+  }
+ }
+

@@ -20,6 +20,11 @@ def record_namespace(out: list, indent: str, _params: str = "()"):
     out.append(indent + "log_locals(locals(), _namespace)")
 
 
+def add_new_line_trigger(out: list, indent: str):
+    out.append(indent + "NL_TRIGGER = True")  # force new line in trace table
+    out.append(indent + "log_locals(locals(), _namespace)")
+    out.append(indent + "NL_TRIGGER = False")
+    out.append(indent + "del NL_TRIGGER")
 ###################################################################################################
 
 def get_trace_table(code: str) -> str:
@@ -30,7 +35,7 @@ def get_trace_table(code: str) -> str:
     out = []
     new_line_trigger = False
 
-
+    for_loop_stack = []
 
     for i, line in enumerate(code.split("\n")):
         s_line = line.strip()
@@ -43,7 +48,7 @@ def get_trace_table(code: str) -> str:
 
         _this_func = inspect.stack()[0][3]
 
-        if s_line.startswith("def"):
+        if s_line.startswith("def "):
 
             _params = s_line.split("(")[1][:-2]
 
@@ -59,18 +64,15 @@ def get_trace_table(code: str) -> str:
             indent += SPACE4
             record_namespace(out, indent, _params)
 
-        elif s_line.startswith("for"):
-
-            new_line_trigger = True                                                 # FOR loop:
-            out.append(indent + "NL_TRIGGER = True")                                    # force new line in trace table
-            out.append(indent + "log_locals(locals(), _namespace)")
-            out.append(indent + "NL_TRIGGER = False")
+        elif s_line.startswith("for "):
             out.append(line)
             indent += SPACE4
+            add_new_line_trigger(out, indent)
+
             out.append(indent + "log_locals(locals(), _namespace)")
 
-        elif (if_found := "if" in s_line[:4]) or \
-             (while_found := s_line.startswith("while")):                            # ensure logic exps are recorded
+        elif (if_found := "if " in s_line[:5]) or \
+             (while_found := s_line.startswith("while ")):                            # ensure logic exps are recorded
             kw = "if " if if_found else "while "
             cond = s_line.split(kw)[1][:-1]                                          # despace condition to allow var name and
             cond = {convert_to_var(cond):f"$%eval('{cond}')$%"}                      # set up the logic exp to evaluate later
@@ -78,8 +80,8 @@ def get_trace_table(code: str) -> str:
                                 f"{kw}log_locals(locals(), _namespace, {cond}) and ") # include memory lookup in condition
             out.append(line)
 
-        elif (return_found := s_line.startswith("return")) or \
-             (print_found := s_line.startswith("print")):
+        elif (return_found := s_line.startswith("return ")) or \
+             (print_found := s_line.startswith("print(")):
             kw = "return " if return_found else "print("                             # track print() and return too
             _, output = s_line.split(kw)
             if kw == "print(":
@@ -91,11 +93,16 @@ def get_trace_table(code: str) -> str:
             out.append(indent + f"del {kw.upper()}")
             out.append(line)
 
-        elif not s_line.startswith("else"):
+        elif not s_line.startswith("else:"):
             out.append(line)
             out.append(indent + "log_locals(locals(), _namespace)")
-        else:                                                                        # nothing to be added to the trace table for else
+        # elif for_loop_stack and len(indent) < len(for_loop_stack[0]):                   # force a new line after last statement of for loop
+        #     prev_indent = for_loop_stack.pop(0)
+        #     add_new_line_trigger(out, prev_indent)
+        #     out.append(line)
+        else:
             out.append(line)
+
 
         # if new_line_trigger:
         #     out.append(indent + "NL_TRIGGER = False")
@@ -299,28 +306,30 @@ def _get_next_input(prompt):
 
 ###################################################################################################
 
-def get_execution_meta(code, _inputs=None):
+def get_execution_meta(_code, _inputs=None):
 
     g.exec_q = []
     g.trace_table = {}
 
 
-    code = code.replace("\t", SPACE4)
-    #exec(parse_exec_q(code))
+    _code = _code.replace("\t", SPACE4)
+    exec(parse_exec_q(_code))
 
     if _inputs:
-        code = refactor_inputs_as_prints(code)
-        code = code.replace("input(", "_get_next_input(")
+        _code = refactor_inputs_as_prints(_code)
+        _code = _code.replace("input(", "_get_next_input(")
         g.inputs = _inputs
 
 
-    exec(get_trace_table(code).replace('"$%', "").replace('$%"', ""))
+    exec(get_trace_table(_code).replace('"$%', "").replace('$%"', ""))
 
     print("PRINTING META")
     for row, data in g.trace_table.items():
         print(row)
         for d in data:
             print(d)
+
+    g.trace_table.pop("<module>()")
 
     return g.exec_q, g.trace_table
 

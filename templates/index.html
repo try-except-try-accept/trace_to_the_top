@@ -8,6 +8,9 @@
 
     <script src="static/scripts.js" type="text/javascript"></script>
 
+        {% block extra_head %}
+        {% endblock %}
+
 </head>
 <body>
 
@@ -17,33 +20,41 @@
 
         <div class="code_container">
 
+
+
         <h2>Code:</h2>
 
+            {% block code %}
+
+            {% endblock %}
 
 
-            <form action="/submit_code" method="post" onsubmit="return check_inputs_provided();">
 
-<textarea id="code_submit" name="code_submit">
-{{ code }}
-
-
-</textarea>
-<br>
-<label for="inputs">List inputs (comma-separated): <input type="text" id="inputs" name="inputs"></label>
-<br>
-                <button type="submit">SUBMIT CODE</button>
-            </form>
         </div>
 
         <div class="table_container">
 
         <h2>Trace Table(s):</h2>
 
-        {{ tables }}
+            {% block tables %}
+
+            {% endblock %}
+
+
 
         </div>
 
     </div>
+
+<script>
+
+
+    {% block post_content_scripts %}
+
+    {% endblock %}
+
+</script>
+
 
 </body>
 
