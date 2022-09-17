@@ -224,7 +224,7 @@ def parse_exec_q(code: str) -> str:
 def log_line(i: int) -> bool:
     '''Log the instruction line number currently being executed.
     RETURNS: True so can also be used in a conditional structure'''
-    g.exec_q.append(i)
+    g.exec_q.append(i+1)
     return True
 
 ###################################################################################################
@@ -313,13 +313,23 @@ def get_execution_meta(_code, _inputs=None):
 
 
     _code = _code.replace("\t", SPACE4)
-    exec(parse_exec_q(_code))
+
+
+
+
+
 
     if _inputs:
         _code = refactor_inputs_as_prints(_code)
         _code = _code.replace("input(", "_get_next_input(")
-        g.inputs = _inputs
 
+
+    if _inputs:
+        g.inputs = list(_inputs)
+    exec(parse_exec_q(_code))
+
+    if _inputs:
+        g.inputs = list(_inputs)
 
     exec(get_trace_table(_code).replace('"$%', "").replace('$%"', ""))
 

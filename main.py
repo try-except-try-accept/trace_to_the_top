@@ -18,6 +18,9 @@ def add_wrapper(code):
 	return code
 
 
+def strip_blanks(code):
+	return "\n".join(line for line in code.splitlines() if len(line.strip()))
+
 @app.route('/submit_code', methods=["POST"])
 def submit():
 
@@ -26,7 +29,10 @@ def submit():
 
 
 
-	wrapped_code = add_wrapper(code)
+	wrapped_code = strip_blanks(add_wrapper(code))
+
+
+	code = strip_blanks(code)
 
 	exec_q, tt_data = annotate_execution.get_execution_meta(wrapped_code, inputs)
 	tables = create_tables(tt_data)

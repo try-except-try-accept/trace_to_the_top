@@ -10,17 +10,23 @@ Program code self-annotates locals and logical expressions.
     ELIF - save all evaluations before execution, but revisit and pop any unevaluated conditions (not required)
     RETURN / print - save expression before execution X
     DEF - save state under CALL X
-
-    Need to consider INPUT substitution.
+    Need to consider INPUT substitution. X
     What about when arrays have their values changed?
 
 STAGE 2
 
 Locals 3D array -> HTML table X
 
-execution order queue -> code highlight CSS
+execution order queue -> code highlight CSS X
 
 Locals 3D array -> cell reveal queue
+
+
+BUGS:
+
+Blank lines cause code highlighting mixup
+
+fix 2 column layout
 
 --------------------------------------------
 
