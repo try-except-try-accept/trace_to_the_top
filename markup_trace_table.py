@@ -2,11 +2,35 @@ from flask import Markup
 
 from collections import OrderedDict
 
+from config import SYMBOL_REPS
+
+####################################################################################
+
 def add_new_row(this_row: dict, headings: list) -> str:
 	'''Convert Python dict into HTML table row'''
 
-
 	return '<tr>' + ''.join(f'<td>{this_row[h]}</td>' for h in headings.keys()) + '</tr>\n'
+
+####################################################################################
+
+def prepare_table_headings(headings: dict, namespace: str):
+	'''Label top row with function namespace name
+	Label second row with trace table headings + lookup symbol equivalents'''
+	reformatted_headings = []
+
+	for heading in headings.keys():
+		for symbol, code in SYMBOL_REPS.items():
+			heading = heading.replace(code, symbol)
+		reformatted_headings.append(heading)
+
+	html = ""
+	heading_row = "".join(f"<th>{h}</th>" for h in reformatted_headings)
+	html += f"<table><tr><th colspan={len(headings)}>{namespace}</th></tr>\n"
+	html += f"<tr>{heading_row}</tr>\n"
+
+	return html
+
+####################################################################################
 
 def create_tables(tt_data):
 	html = ""
@@ -16,21 +40,16 @@ def create_tables(tt_data):
 			for k in row.keys():
 				headings.update({k:None})
 
-
-
-
 		if "NL_TRIGGER" in headings:
 			headings.pop("NL_TRIGGER")
 
-		heading_row = "".join(f"<th>{h}</th>" for h in headings.keys())
-
 		cols = len(headings)
 
-
-
 		print("This table is: ", namespace)
-		html += f"<table><tr><th colspan={cols}>{namespace}</th></tr>\n"
-		html += f"<tr>{heading_row}</tr>\n"
+
+		print("headings are", headings)
+
+		html += prepare_table_headings(headings, namespace)
 
 		current = dict(table[0])
 		new_row = False
@@ -44,8 +63,6 @@ def create_tables(tt_data):
 		this_row = dict(blank_row)
 
 		while len(table):
-
-
 
 			this_instruction = table.pop(0)
 
@@ -74,51 +91,7 @@ def create_tables(tt_data):
 
 
 
-
-
-
-
-
-
 		html += add_new_row(this_row, headings)
-
-			# new_row = False
-			# while not new_row:
-			# 	try:
-			# 		this_instruction = table.pop(0)
-			# 	except IndexError:
-			# 		break
-			# 	ready_for_new_row = dict(this_instruction)
-			# 	for col, val in this_instruction.items():					# go through each value change in this instruction
-			#
-			# 		if col in this_row:													# is val already in row?
-			# 			if this_row[col] != this_instruction[col]:						# is val different?
-			# 				html += add_new_row(this_row, headings)						# yes, time for new row.
-			# 				this_row = {k:v for k,v in ready_for_new_row.items()		# take whatever is left from
-			# 							if k in this_row and this_row[k] != v}			# this instruction, rdy for new row
-			# 				new_row = True
-			# 				break
-			#
-			#
-			# 		this_row[col] = val
-			# 		ready_for_new_row.pop(col)
-
-		#html += add_new_row(this_row, headings)
-
-			#
-			# for col in headings:
-			#
-			# 	if col in this_instruction and (col not in current or this_instruction[col] != current[col]):
-			# 		new_value = this_instruction[col]
-			# 		current[col] = new_value
-			# 		new_values_found = True
-			# 	else:
-			# 		new_value = ""
-			# 	this_row += f"<td>{new_value}</td>"
-			# this_row += f"</tr>\n"
-			#
-			# if new_values_found:
-			# 	html += this_row
 
 		html += "</table>\n"
 
@@ -126,6 +99,7 @@ def create_tables(tt_data):
 
 	return Markup(html)
 
+####################################################################################
 
 def markup_code(code):
 	TABSPACE = "&nbsp;" * 4
@@ -133,6 +107,8 @@ def markup_code(code):
 	code = code.replace("\n", "<br>")
 
 	return Markup("<code>" + code + "</code>")
+
+####################################################################################
 
 def run_tests(tests):
 

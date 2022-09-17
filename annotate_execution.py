@@ -1,8 +1,6 @@
-SPACE4 = " "*4
-SPACE_SIZE = 4
-MAX_CELL_LENGTH = 50
-CONTROL_STATEMENTS = 'if,elif,else,while,def,for,try,except'.split(",")
-REMOVE_VARS = ["_this_func", "_params", "_namespace", "_inputs"]  # helpers for identifying scope
+
+from config import *
+
 import inspect
 
 from flask import g
@@ -130,7 +128,37 @@ def convert_to_var(expression: str) -> str:
     if not expression[0].isalpha():
         expression = "_" + expression
 
-    return "".join(e if e.isalpha() or e.isdigit() or e == '_' else '_' for e in expression)
+
+
+    out = ""
+    token = ""
+    expression = expression.replace(" ", "")
+
+    token_found = False
+    for e in expression:
+        print(e, out, token)
+
+        if e.isalpha() or e.isdigit():
+            out += e
+            token_found = False
+        elif e == "_" and not token_found:
+            out += e
+        else:
+            token += e
+
+        replacement = SYMBOL_REPS.get(token.strip())
+        if replacement:
+            token = ""
+            out += replacement
+            token_found = True
+        else:
+            if len(token.strip()) == 2:
+                token = ""
+
+        token = token.replace("_", "")
+
+
+    return out
 
 ###################################################################################################
 
