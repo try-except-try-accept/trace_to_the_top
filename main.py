@@ -35,12 +35,14 @@ def submit():
 	exec_q, tt_data = annotate_execution.get_execution_meta(wrapped_code, inputs)
 
 	print(exec_q)
-	anim = prep_line_animations(exec_q)
-	print(anim)
+	line_anim = prep_line_animations(exec_q)
+	table_anim = prep_table_animations(exec_q)
+
 
 	tables = create_tables(tt_data)
 
-	return render_template("display.html", tables=tables, code=markup_code(code), exec_q=exec_q, line_animation=anim)
+	return render_template("display.html", tables=tables, code=markup_code(code), exec_q=exec_q,
+						   line_animation=line_anim, table_animation=table_anim)
 
 #################
 

@@ -9,6 +9,8 @@ g._namespace = "__main__()"
 g.exec_q = []
 g.trace_table = {}
 
+
+
 ###################################################################################################
 
 def record_namespace(out: list, indent: str, _params: str = "()"):
@@ -46,6 +48,7 @@ def get_trace_table(code: str) -> str:
         if i == 0:
             record_namespace(out, indent)
 
+
         _this_func = inspect.stack()[0][3]
 
         if s_line.startswith("def "):
@@ -60,9 +63,13 @@ def get_trace_table(code: str) -> str:
                                   for p in _params.replace(" ", "").split(","))
                 _params = "(" + _params + ")"
 
+            if not s_line.startswith("def __main__"):
+                out.append(indent + "log_locals(locals(), _namespace)")
             out.append(line)
             indent += SPACE4
             record_namespace(out, indent, _params)
+
+
 
         elif s_line.startswith("for "):
             out.append(line)
@@ -77,20 +84,27 @@ def get_trace_table(code: str) -> str:
             cond = s_line.split(kw)[1][:-1]                                          # despace condition to allow var name and
             cond = {convert_to_var(cond):f"$%eval('{cond}')$%"}                      # set up the logic exp to evaluate later
             line = line.replace(kw,
-                                f"{kw}log_locals(locals(), _namespace, {cond}) and ") # include memory lookup in condition
+                                f"{kw}log_locals(locals(), _namespace, extra_condition={cond}) and ") # include memory lookup in condition
             out.append(line)
 
         elif (return_found := s_line.startswith("return ")) or \
              (print_found := s_line.startswith("print(")):
+            input_as_print = False
             kw = "return " if return_found else "print("                             # track print() and return too
             _, output = s_line.split(kw)
             if kw == "print(":
+
                 output = output[:-1]                                                 # get rid of last bracket
                 kw = kw[:-1]
+                if PRINT_INPUT_DEC in s_line:
+                    input_as_print = True
+                    output = output.replace(PRINT_INPUT_DEC, "")
 
             out.append(indent + f"{kw.upper()} = {output}")
-            out.append(indent + "log_locals(locals(), _namespace)")
+            out.append(indent + f"_input_as_print = {input_as_print}")
+            out.append(indent + "log_locals(locals(), _namespace, _input_as_print)")
             out.append(indent + f"del {kw.upper()}")
+            out.append(indent + f"del _input_as_print")
             out.append(line)
 
         elif not s_line.startswith("else:"):
@@ -102,6 +116,7 @@ def get_trace_table(code: str) -> str:
         #     out.append(line)
         else:
             out.append(line)
+            out.append(indent + SPACE4 + "log_locals(locals(), _namespace)")
 
 
         # if new_line_trigger:
@@ -224,12 +239,13 @@ def parse_exec_q(code: str) -> str:
 def log_line(i: int) -> bool:
     '''Log the instruction line number currently being executed.
     RETURNS: True so can also be used in a conditional structure'''
-    g.exec_q.append(i+1)
+    g.exec_q.append(i)
+
     return True
 
 ###################################################################################################
 
-def log_locals(locals, _namespace="__main__()", extra_condition=None):
+def log_locals(locals, _namespace="__main__()", input_as_print=False, extra_condition=None):
     '''Log the memory changes at a given point whilst a program is
     being executed.
     RETURNS: True so can also be used in a conditional structure'''
@@ -252,9 +268,9 @@ def log_locals(locals, _namespace="__main__()", extra_condition=None):
 
     # will NOT work if there are other brackets in func definition...
 
-    print("Name space is ", _namespace)
+
     ns_params = _namespace.split("(")[1][:-1]                    # extract the params from the function namespace
-    print("Ns params", ns_params)
+
     ns_func = _namespace.split("(")[0]                           # extract the function name
 
     resolved_params = []
@@ -272,9 +288,19 @@ def log_locals(locals, _namespace="__main__()", extra_condition=None):
 
 
     try:
-        g.trace_table[_namespace].append(dict(filtered_locals))    # add this memory to that table
+        g.trace_table[_namespace].append((g.mem_change_order, dict(filtered_locals)))    # add this memory to that table
     except KeyError:
-        g.trace_table[_namespace] = [dict(filtered_locals)]        # create table if needed
+        g.trace_table[_namespace] = [(g.mem_change_order, dict(filtered_locals))]        # create table if needed
+
+    ## as long as some memory has changed since last time...
+
+
+    if "NL_TRIGGER" not in filtered_locals.keys():
+        g.mem_change_order += 1
+
+    if input_as_print:
+        g.mem_change_order -= 1
+
     return True
 
 ###################################################################################################
@@ -291,6 +317,10 @@ def refactor_inputs_as_prints(code: str) -> str:
             var, input_statement = line.split("=")
 
             prompt = input_statement.replace("input(", "").strip()[:-1]
+            
+            if prompt == "":
+                prompt = '"'
+            prompt = '"' + PRINT_INPUT_DEC + prompt[1:]
             out += indent + f'print({prompt})\n'
 
 
@@ -310,7 +340,7 @@ def get_execution_meta(_code, _inputs=None):
 
     g.exec_q = []
     g.trace_table = {}
-
+    g.mem_change_order = 0
 
     _code = _code.replace("\t", SPACE4)
 
@@ -326,12 +356,18 @@ def get_execution_meta(_code, _inputs=None):
 
     if _inputs:
         g.inputs = list(_inputs)
-    exec(parse_exec_q(_code))
+    code_w_exec_annotations = parse_exec_q(_code)
+    #print(code_w_exec_annotations)
+
+    exec(code_w_exec_annotations)
+    #print(g.exec_q)
+
 
     if _inputs:
         g.inputs = list(_inputs)
 
     exec(get_trace_table(_code).replace('"$%', "").replace('$%"', ""))
+
 
     print("PRINTING META")
     for row, data in g.trace_table.items():
@@ -372,8 +408,8 @@ tests = ['''def main():
             return x
     recursive_def_dont_work(1)
 main()''',
-    
-    
+
+
 '''def main():
 
     def func(a, b, c):

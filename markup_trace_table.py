@@ -42,10 +42,12 @@ def create_tables(tt_data):
 	instruction_count = 0
 
 
+
+
 	for namespace, table in tt_data.items():
 		headings = OrderedDict()
 		for row in table:
-			for k in row.keys():
+			for k in row[1].keys():
 				headings.update({k:None})
 
 		if "NL_TRIGGER" in headings:
@@ -53,17 +55,17 @@ def create_tables(tt_data):
 
 		cols = len(headings)
 
-		print("This table is: ", namespace)
+		#print("This table is: ", namespace)
 
-		print("headings are", headings)
+		#print("headings are", headings)
 
 		html += prepare_table_headings(headings, namespace)
 
-		current = dict(table[0])
+		current = dict(table[0][1])
 		new_row = False
 		this_row = {}
 
-		print("Headings are", headings)
+		#print("Headings are", headings)
 
 		blank_row = {h:('', -1)  for h in headings.keys()}
 
@@ -74,14 +76,14 @@ def create_tables(tt_data):
 
 		while len(table):
 
-			this_instruction = table.pop(0)
+			occurrence, this_instruction = table.pop(0)
 
-			print("This instruction is", this_instruction)
+			#print("This instruction is", this_instruction)
 
 			new_line = this_instruction.get("NL_TRIGGER")
 			if new_line:
 
-				print("New line because trigger")
+				#print("New line because trigger")
 				html += add_new_row(this_row, headings)
 				this_row = dict(blank_row)
 
@@ -91,15 +93,17 @@ def create_tables(tt_data):
 
 
 				if current_values[column][0] == '':
-					current_values[column] = (value, instruction_count)
-					this_row[column] =  (value, instruction_count)
+					current_values[column] = (value, occurrence)
+					this_row[column] =  (value, occurrence)
+
 				elif current_values[column][0] != value:
 					if this_row[column][0] != '':
-						print(f"New line because {value} is different to {current_values[column]} for {column}")
+						#print(f"New line because {value} is different to {current_values[column]} for {column}")
 						html += add_new_row(this_row, headings)
 						this_row = dict(blank_row)
-					current_values[column] =  (value, instruction_count)
-					this_row[column] =  (value, instruction_count)
+					current_values[column] =  (value, occurrence)
+					this_row[column] =  (value, occurrence)
+
 
 			instruction_count += 1
 
@@ -120,7 +124,7 @@ def markup_code(code):
 
 	code = "".join(f"<p>{line}</p>" for line in code.splitlines())
 
-	return Markup('<div id="code_display">' + code + "</code>")
+	return Markup('<div id="code_display"><code>' + code + "</code></div>")
 
 
 ####################################################################################

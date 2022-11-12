@@ -18,32 +18,34 @@
 
     <div class="main">
 
-        <div class="code_container">
+        <div class="row">
+
+            <div class="code_container">
 
 
 
-        <h2>Code:</h2>
+                <h2>Code:</h2>
 
-            {% block code %}
+                {% block code %}
 
-            {% endblock %}
+                {% endblock %}
 
 
 
+            </div>
+
+            <div class="table_container">
+
+                <h2>Trace Table(s):</h2>
+
+                    {% block tables %}
+
+                    {% endblock %}
+
+
+
+            </div>
         </div>
-
-        <div class="table_container">
-
-        <h2>Trace Table(s):</h2>
-
-            {% block tables %}
-
-            {% endblock %}
-
-
-
-        </div>
-
     </div>
 
 <script>

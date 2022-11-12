@@ -22,4 +22,13 @@ def prep_line_animations(exec_q):
 
 
 def prep_table_animations(exec_q):
-	return None
+	rule = ".iclass_count {animation: highlight_cell 1s linear secs forwards;}"
+	css = "<style>"
+	i = 0
+	for instruction in exec_q:
+		css += "\n" + rule.replace("class_count", str(i+2)).replace("sec", str(i+2))
+
+		i += 1
+
+	return Markup(css + "</style>")
+
