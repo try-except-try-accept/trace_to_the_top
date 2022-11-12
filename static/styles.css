@@ -19,11 +19,6 @@ td, th
     text-align:center;
 }
 
-td span
-{
-    opacity:0;
-}
-
 
 textarea
 {

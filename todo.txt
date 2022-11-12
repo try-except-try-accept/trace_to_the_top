@@ -1,0 +1,8 @@
+- animate table cells
+
+- a focus on design
+
+- pseudocode mode -> convert to Python
+
+- quiz mode - what happens next?
+
