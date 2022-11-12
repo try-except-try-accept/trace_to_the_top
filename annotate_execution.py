@@ -1,4 +1,3 @@
-
 from config import *
 
 import inspect
@@ -8,7 +7,6 @@ from flask import g
 g._namespace = "__main__()"
 g.exec_q = []
 g.trace_table = {}
-
 
 
 ###################################################################################################
@@ -27,6 +25,8 @@ def add_new_line_trigger(out: list, indent: str):
     out.append(indent + "log_locals(locals(), _namespace)")
     out.append(indent + "NL_TRIGGER = False")
     out.append(indent + "del NL_TRIGGER")
+
+
 ###################################################################################################
 
 def get_trace_table(code: str) -> str:
@@ -41,26 +41,27 @@ def get_trace_table(code: str) -> str:
 
     for i, line in enumerate(code.split("\n")):
         s_line = line.strip()
-        if not s_line:    continue                                               # skip blank lines
+        if not s_line:    continue  # skip blank lines
 
         indent = get_indent(line)
 
         if i == 0:
             record_namespace(out, indent)
 
-
         _this_func = inspect.stack()[0][3]
 
         if s_line.startswith("def "):
-
+            no_params = False
             _params = s_line.split("(")[1][:-2]
 
             if not _params:
                 _params = '()'
+                no_params = True
+
             else:
-                for delim in ":=":                                                  # handle type hints and kwargs
+                for delim in ":=":  # handle type hints and kwargs
                     _params = "^%".join(p.split(delim)[0]
-                                  for p in _params.replace(" ", "").split(","))
+                                        for p in _params.replace(" ", "").split(","))
                 _params = "(" + _params + ")"
 
             if not s_line.startswith("def __main__"):
@@ -68,6 +69,7 @@ def get_trace_table(code: str) -> str:
             out.append(line)
             indent += SPACE4
             record_namespace(out, indent, _params)
+
 
 
 
@@ -79,22 +81,22 @@ def get_trace_table(code: str) -> str:
             out.append(indent + "log_locals(locals(), _namespace)")
 
         elif (if_found := "if " in s_line[:5]) or \
-             (while_found := s_line.startswith("while ")):                            # ensure logic exps are recorded
+                (while_found := s_line.startswith("while ")):  # ensure logic exps are recorded
             kw = "if " if if_found else "while "
-            cond = s_line.split(kw)[1][:-1]                                          # despace condition to allow var name and
-            cond = {convert_to_var(cond):f"$%eval('{cond}')$%"}                      # set up the logic exp to evaluate later
+            cond = s_line.split(kw)[1][:-1]  # despace condition to allow var name and
+            cond = {convert_to_var(cond): f"$%eval('{cond}')$%"}  # set up the logic exp to evaluate later
             line = line.replace(kw,
-                                f"{kw}log_locals(locals(), _namespace, extra_condition={cond}) and ") # include memory lookup in condition
+                                f"{kw}log_locals(locals(), _namespace, extra_condition={cond}) and ")  # include memory lookup in condition
             out.append(line)
 
         elif (return_found := s_line.startswith("return ")) or \
-             (print_found := s_line.startswith("print(")):
+                (print_found := s_line.startswith("print(")):
             input_as_print = False
-            kw = "return " if return_found else "print("                             # track print() and return too
+            kw = "return " if return_found else "print("  # track print() and return too
             _, output = s_line.split(kw)
             if kw == "print(":
 
-                output = output[:-1]                                                 # get rid of last bracket
+                output = output[:-1]  # get rid of last bracket
                 kw = kw[:-1]
                 if PRINT_INPUT_DEC in s_line:
                     input_as_print = True
@@ -118,7 +120,6 @@ def get_trace_table(code: str) -> str:
             out.append(line)
             out.append(indent + SPACE4 + "log_locals(locals(), _namespace)")
 
-
         # if new_line_trigger:
         #     out.append(indent + "NL_TRIGGER = False")
         #     new_line_trigger = False
@@ -133,13 +134,14 @@ def get_trace_table(code: str) -> str:
 
 def get_indent(line: str) -> str:
     '''Find how much indentation a line has
-    RETURNS: string - the indentation'''                                        # probably could use regex for this
+    RETURNS: string - the indentation'''  # probably could use regex for this
     space_count = 0
     for char in line:
         if char != " ":
             break
         space_count += 1
     return (space_count * " ")
+
 
 ###################################################################################################
 
@@ -149,8 +151,6 @@ def convert_to_var(expression: str) -> str:
     RETURNS: string - the expression as a variable name'''
     if not expression[0].isalpha():
         expression = "_" + expression
-
-
 
     out = ""
     token = ""
@@ -179,8 +179,8 @@ def convert_to_var(expression: str) -> str:
 
         token = token.replace("_", "")
 
-
     return out
+
 
 ###################################################################################################
 
@@ -191,10 +191,11 @@ def stringify_value(value) -> str:
     if type(value) != str or (value[0] == '"' == value[-1]):
         return value
 
-    quoted_value = f'"{value}"'                                                     # double quotes for STRING
+    quoted_value = f'"{value}"'  # double quotes for STRING
     if len(value) == 1:
-        quoted_value = f"'{value}'"                                                 # single quotes for CHAR
+        quoted_value = f"'{value}'"  # single quotes for CHAR
     return quoted_value
+
 
 ###################################################################################################
 
@@ -213,26 +214,27 @@ def parse_exec_q(code: str) -> str:
 
         indent = get_indent(line)
 
-        if not s_line:                                                              # strip out blank lines
+        if not s_line:  # strip out blank lines
             continue
-        if any(s_line.startswith(kw) for kw in CONTROL_STATEMENTS[4:]):             # line number AFTER certain keywords
+        if any(s_line.startswith(kw) for kw in CONTROL_STATEMENTS[4:]):  # line number AFTER certain keywords
             out.append(line)
             out.append(indent + SPACE4 + track_line)
-        elif "if" in s_line[:4]:                                                    # line number during if / elif eval
+        elif "if" in s_line[:4]:  # line number during if / elif eval
             line = line.replace("if ", f"if log_line({line_count}) and ")
             out.append(line)
-        elif "while" == s_line[:5]:                                                 # line number during while eval
+        elif "while" == s_line[:5]:  # line number during while eval
             line = line.replace("while ", f"while log_line({line_count}) and ")
             out.append(line)
-        elif s_line.startswith("else"):                                             # line number during else (→ elif True)
+        elif s_line.startswith("else"):  # line number during else (→ elif True)
             out.append(line.replace("else:", f"elif log_line({line_count}):"))
-        else:                                                                       # otherwise line number before line
+        else:  # otherwise line number before line
             out.append(indent + track_line)
             out.append(line)
 
         line_count += 1
 
     return '\n'.join(out)
+
 
 ###################################################################################################
 
@@ -243,6 +245,7 @@ def log_line(i: int) -> bool:
 
     return True
 
+
 ###################################################################################################
 
 def log_locals(locals, _namespace="__main__()", input_as_print=False, extra_condition=None):
@@ -250,16 +253,15 @@ def log_locals(locals, _namespace="__main__()", input_as_print=False, extra_cond
     being executed.
     RETURNS: True so can also be used in a conditional structure'''
 
-
-    if extra_condition:                                                # check if logical exp is being evaluated too
+    if extra_condition:  # check if logical exp is being evaluated too
         locals.update(extra_condition)
 
-    filtered_locals = dict(locals)                                     # make a copy to allow changes
+    filtered_locals = dict(locals)  # make a copy to allow changes
 
     for local, value in locals.items():
-        if "<function" in str(value):                                  # remove function memory address references
+        if "<function" in str(value):  # remove function memory address references
             filtered_locals.pop(local)
-        elif len(str(value)) > MAX_CELL_LENGTH:                        # assume if it's really long we don't want it
+        elif len(str(value)) > MAX_CELL_LENGTH:  # assume if it's really long we don't want it
             filtered_locals.pop(local)
         elif local in REMOVE_VARS:
             filtered_locals.pop(local)
@@ -268,32 +270,28 @@ def log_locals(locals, _namespace="__main__()", input_as_print=False, extra_cond
 
     # will NOT work if there are other brackets in func definition...
 
+    ns_params = _namespace.split("(")[1][:-1]  # extract the params from the function namespace
 
-    ns_params = _namespace.split("(")[1][:-1]                    # extract the params from the function namespace
-
-    ns_func = _namespace.split("(")[0]                           # extract the function name
+    ns_func = _namespace.split("(")[0]  # extract the function name
 
     resolved_params = []
 
-    for param in ns_params.replace(" ", "").split("^%"):         # lookup the parameter values to resolve references
+    for param in ns_params.replace(" ", "").split("^%"):  # lookup the parameter values to resolve references
         if param:
             try:
                 resolved_value = str(stringify_value(filtered_locals[param]))
-            except KeyError:                                    # non-literals no need to resolve
+            except KeyError:  # non-literals no need to resolve
                 resolved_value = stringify_value(param)
             resolved_params.append(resolved_value)
 
-    _namespace = f"{ns_func}({', '.join(resolved_params)})"      # reconstruct the namespace name
-
-
+    _namespace = f"{ns_func}({', '.join(resolved_params)})"  # reconstruct the namespace name
 
     try:
-        g.trace_table[_namespace].append((g.mem_change_order, dict(filtered_locals)))    # add this memory to that table
+        g.trace_table[_namespace].append((g.mem_change_order, dict(filtered_locals)))  # add this memory to that table
     except KeyError:
-        g.trace_table[_namespace] = [(g.mem_change_order, dict(filtered_locals))]        # create table if needed
+        g.trace_table[_namespace] = [(g.mem_change_order, dict(filtered_locals))]  # create table if needed
 
     ## as long as some memory has changed since last time...
-
 
     if "NL_TRIGGER" not in filtered_locals.keys():
         g.mem_change_order += 1
@@ -302,6 +300,7 @@ def log_locals(locals, _namespace="__main__()", input_as_print=False, extra_cond
         g.mem_change_order -= 1
 
     return True
+
 
 ###################################################################################################
 
@@ -317,16 +316,16 @@ def refactor_inputs_as_prints(code: str) -> str:
             var, input_statement = line.split("=")
 
             prompt = input_statement.replace("input(", "").strip()[:-1]
-            
+
             if prompt == "":
                 prompt = '"'
             prompt = '"' + PRINT_INPUT_DEC + prompt[1:]
             out += indent + f'print({prompt})\n'
 
-
         out += line + '\n'
 
     return out
+
 
 ###################################################################################################
 
@@ -334,40 +333,32 @@ def _get_next_input(prompt):
     '''Get the next user-provided input to mock input() in the program'''
     return g.inputs.pop(0)
 
+
 ###################################################################################################
 
 def get_execution_meta(_code, _inputs=None):
-
     g.exec_q = []
     g.trace_table = {}
-    g.mem_change_order = 0
+    g.mem_change_order = 1
 
     _code = _code.replace("\t", SPACE4)
-
-
-
-
-
 
     if _inputs:
         _code = refactor_inputs_as_prints(_code)
         _code = _code.replace("input(", "_get_next_input(")
 
-
     if _inputs:
         g.inputs = list(_inputs)
     code_w_exec_annotations = parse_exec_q(_code)
-    #print(code_w_exec_annotations)
+    # print(code_w_exec_annotations)
 
     exec(code_w_exec_annotations)
-    #print(g.exec_q)
-
+    # print(g.exec_q)
 
     if _inputs:
         g.inputs = list(_inputs)
 
     exec(get_trace_table(_code).replace('"$%', "").replace('$%"', ""))
-
 
     print("PRINTING META")
     for row, data in g.trace_table.items():
@@ -379,12 +370,12 @@ def get_execution_meta(_code, _inputs=None):
 
     return g.exec_q, g.trace_table
 
+
 ###################################################################################################
 
 def run_tests():
-
     for i, t in enumerate(tests[-1:]):
-        print(f"test {i+1}")
+        print(f"test {i + 1}")
 
         exec_q, trace_table = get_execution_meta(t)
 
@@ -395,7 +386,6 @@ def run_tests():
             print("NAMESPACE", namespace)
             for row in data:
                 print("\t", row)
-
 
 
 ###################################################################################################
@@ -409,74 +399,68 @@ tests = ['''def main():
     recursive_def_dont_work(1)
 main()''',
 
+         '''def main():
+             def func(a, b, c):
+                 print("Whattt")
+                 if a > b:
+                     t = "hello"
+                     if a == c:
+                         t *= 2
+                 elif b > c:
+                     t = "no"
+                 else:
+                     t = "yesno"
+                 return t
+             x = func(3, 2, 1)
+             print(x)
+         print("hi")
+         main()
+         print("What's going on")
+         ''',
 
-'''def main():
+         '''
+         def main():
+             x = 5
+             while x < 50:
+                 x += 1
+                 print(x)
+         main()
+         ''',
 
-    def func(a, b, c):
-        print("Whattt")
+         '''
+         def main():
+             def x(a, b):
+                 return a + b
+         
+             def y(a, b):
+                 return a * b
+         
+             for i in range(3):
+                 for j in range(3):
+                     print(x(i, j), y(i, j))
+         
+         main()
+         ''',
+         '''
+         def main():
+             x = 2
+             y = 10
+             print("Hello world")
+             return x + y
+         result = main()
+         print(result)''',
 
-        if a > b:
-            t = "hello"
-            if a == c:
-                t *= 2
-        elif b > c:
-            t = "no"
-        else:
-            t = "yesno"
+         '''def __main__():
+             def go():
+                 x = 10
+                 for i in range(5):
+                     print(i)
+                     print(x)
+                     x += 1
+             go()
+         __main__()'''
 
-        return t
-
-    x = func(3, 2, 1)
-    print(x)
-print("hi")
-main()
-print("What's going on")
-''',
-
-'''
-def main():
-    x = 5
-    while x < 50:
-        x += 1
-        print(x)
-main()
-''',
-
-'''
-def main():
-    def x(a, b):
-        return a + b
-    
-    def y(a, b):
-        return a * b
-    
-    for i in range(3):
-        for j in range(3):
-            print(x(i, j), y(i, j))
-    
-main()
-''',
-'''
-def main():
-    x = 2
-    y = 10
-    print("Hello world")
-    return x + y
-result = main()
-print(result)''',
-
-'''def __main__():
-    def go():
-        x = 10
-        for i in range(5):
-            print(i)
-            print(x)
-            x += 1
-    go()
-__main__()'''
-
-
-]
+         ]
 
 if __name__ == "__main__":
     run_tests()
