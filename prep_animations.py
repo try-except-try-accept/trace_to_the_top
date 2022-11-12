@@ -9,7 +9,7 @@ def prep_line_animations(exec_q):
 
 	anim_map = {}
 	for count, line in enumerate(exec_q):
-		this_selector = selector.replace("instruction", str(line))
+		this_selector = selector.replace("instruction", str(line+1))
 		this_rule = anim_rule.replace("count", str(count))
 		try:
 			anim_map[this_selector].append(this_rule)

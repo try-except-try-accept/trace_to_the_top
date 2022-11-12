@@ -27,17 +27,20 @@ def submit():
 	code = request.form.get("code_submit").strip()
 	inputs = request.form.get("inputs").strip().replace(" ", "").split(",")
 
-
-
 	wrapped_code = strip_blanks(add_wrapper(code))
 
 
 	code = strip_blanks(code)
 
 	exec_q, tt_data = annotate_execution.get_execution_meta(wrapped_code, inputs)
+
+	print(exec_q)
+	anim = prep_line_animations(exec_q)
+	print(anim)
+
 	tables = create_tables(tt_data)
 
-	return render_template("display.html", tables=tables, code=markup_code(code), exec_q=exec_q, line_animation=prep_line_animations(exec_q))
+	return render_template("display.html", tables=tables, code=markup_code(code), exec_q=exec_q, line_animation=anim)
 
 #################
 
