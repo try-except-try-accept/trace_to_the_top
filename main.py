@@ -1,6 +1,6 @@
 from flask import Flask, render_template, Markup, request
 
-
+from os import listdir
 from markup_trace_table import create_tables, markup_code
 from prep_animations import prep_line_animations, prep_table_animations
 
@@ -44,7 +44,14 @@ def submit():
 @app.route('/')
 def index():
 
-	return render_template("submit.html", tables=None, code="")
+	examples = {}
+	for fn in listdir("test_cases"):
+		if not fn.endswith("py"):	continue
+		with open("test_cases/"+fn) as f:
+			examples[fn] = f.read()
+
+
+	return render_template("submit.html", examples=examples, tables=None, code="")
 
 app.run()
 

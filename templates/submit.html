@@ -1,5 +1,22 @@
 {% extends "index.html" %}
 
+{% block extra_head %}
+    <script type="text/javascript">
+        examples = {{ examples|tojson|safe }}
+
+        function choose_example()
+        {
+            console.log("fired")
+            const code_submit = document.getElementById("code_submit")
+            const chosen = document.getElementById("examples_selector").value
+            code_submit.textContent = examples[chosen]
+        }
+    </script>
+
+
+
+{% endblock %}
+
 {% block code %}
 
 
@@ -13,7 +30,22 @@
     <label for="inputs">List inputs (comma-separated): <input type="text" id="inputs" name="inputs"></label>
     <br>
     <button type="submit">SUBMIT CODE</button>
+
+    <select onchange="choose_example()" id="examples_selector"></select>
+
 </form>
+
+<script>
+    const dd_list = document.getElementById("examples_selector")
+    for (const fn of Object.keys(examples))
+    {
+        const op = document.createElement("option")
+        op.textContent = fn
+        op.value = fn
+        dd_list.appendChild(op)
+    }
+
+</script>
 
 
 {% endblock %}
